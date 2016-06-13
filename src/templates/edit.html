@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Edit Restaurant</title>
+</head>
+<body>
+{{#restaurant}}
+<form action="/update-restaurant" method="post">
+    Update restaurant<br>
+    <input type="hidden" name="id" value="{{id}}">
+    Name:<input type="text" name="name"  value = "{{name}}"><br>
+    Location:<input type="text" name="location"  value="{{location}}"><br>
+    Rating: <select name="rating" value="={{rating}}">
+    <option value="1">1</option>
+    <option value="2">2</option>
+    <option value="3">3</option>
+    <option value="4">4</option>
+    <option value="5">5</option>
+</select><br>
+    Comment:<input type="text" name="comment"  value="{{comment}}"><br>
+    <button type="submit">Update</button>
+</form><br>
+{{/restaurant}}
+
+</body>
+</html>

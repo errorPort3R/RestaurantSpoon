@@ -21,19 +21,22 @@ public class Main {
         Server.createWebServer().start();
         Connection conn = DriverManager.getConnection("jdbc:h2:./main");
         Statement stmt = conn.createStatement();
-        stmt.execute("CREATE TABLE IF NOT EXISTS restaurants (id IDENTITY, name VARCHAR, location VARCHAR, rating INT, comment VARCHAR)" );
+        stmt.execute("CREATE TABLE IF NOT EXISTS restaurants (id IDENTITY, name VARCHAR, location VARCHAR, rating INT, comment VARCHAR)");
 
 
         Spark.get(
                 "/",
-                (request, response) -> {
+                (request, response) ->
+                {
                     Session session = request.session();
                     String username = session.attribute("username");
 
                     HashMap m = new HashMap();
-                    if (username == null) {
+                    if (username == null)
+                    {
                         return new ModelAndView(m, "login.html");
-                    } else {
+                    } else
+                    {
                         User user = users.get(username);
                         m.put("restaurants", selectRestaurants(conn));
                         return new ModelAndView(m, "home.html");
@@ -46,15 +49,18 @@ public class Main {
                 (request, response) -> {
                     String name = request.queryParams("username");
                     String pass = request.queryParams("password");
-                    if (name == null || pass == null) {
+                    if (name == null || pass == null)
+                    {
                         throw new Exception("Name or pass not sent");
                     }
 
                     User user = users.get(name);
-                    if (user == null) {
+                    if (user == null)
+                    {
                         user = new User(name, pass);
                         users.put(name, user);
-                    } else if (!pass.equals(user.name)) {
+                    } else if (!pass.equals(user.name))
+                    {
                         throw new Exception("Wrong password");
                     }
 
@@ -67,11 +73,12 @@ public class Main {
         );
         Spark.post(
                 "/create-restaurant",
-                ((request, response) -> {
+                (request, response) -> {
                     Session session = request.session();
                     String username = session.attribute("username");
 
-                    if (username == null) {
+                    if (username == null)
+                    {
                         throw new Exception("Not Logged in!");
                     }
 
@@ -79,21 +86,22 @@ public class Main {
                     String location = request.queryParams("location");
                     int rating = Integer.valueOf(request.queryParams("rating"));
                     String comment = request.queryParams("comment");
-                    if (name == null || location == null || comment == null) {
+                    if (name == null || location == null || comment == null)
+                    {
                         throw new Exception("Invalid Fields!");
                     }
 
                     User user = users.get(username);
-                    if (user == null) {
+                    if (user == null)
+                    {
                         throw new Exception("User does not exist!");
                     }
                     Restaurant r = new Restaurant(name, location, rating, comment);
-                    //user.restaurants.add(r);
+                    insertRestaurant(conn, r);
 
                     response.redirect("/");
                     return "";
                 }
-                )
         );
         Spark.post(
                 "/logout",
@@ -109,23 +117,47 @@ public class Main {
                 (request, response) -> {
                     Session session = request.session();
                     String username = session.attribute("username");
-                    if (username == null) {
-                        throw new Exception("Not Logged in!");
-                    }
                     int id = Integer.valueOf(request.queryParams("id"));
-                    User user = users.get(username);
-                    if (id<=0 || id - 1 >= selectRestaurants(conn).size())
-                    {
-                        throw new Exception("Not a valid restaurant!");
-                    }
-                    //user.restaurants.remove(id - 1);
                     deleteRestaurant(conn, id);
                     response.redirect("/");
                     return "";
-
                 }
         );
+        Spark.get(
+                "/edit-restaurant",
+                (request, response) ->
+                {
+                    Session session = request.session();
+                    String username = session.attribute("username");
+                    int id = Integer.valueOf(request.queryParams("id"));
+                    HashMap h = new HashMap<>();
+                    h.put("restaurant", getRestaurant(conn,id) );
+                    return new ModelAndView(h, "edit.html");
 
+                },
+                new MustacheTemplateEngine()
+        );
+        Spark.post(
+                "/update-restaurant",
+                (request, response) -> {
+                    Session session = request.session();
+                    String username = session.attribute("username");
+                    int id = Integer.valueOf(request.queryParams("id"));
+                    String name = request.queryParams("name");
+                    String location = request.queryParams("location");
+                    int rating = Integer.valueOf(request.queryParams("rating"));
+                    String comment = request.queryParams("comment");
+                    if (name == null || location == null || comment == null)
+                    {
+                        throw new Exception("Invalid Fields!");
+                    }
+                    Restaurant restaurant = new Restaurant(id, name, location, rating, comment);
+                    updateRestaurant(conn, restaurant);
+
+                    response.redirect("/");
+                    return "";
+                }
+        );
     }
 
     public static void insertRestaurant(Connection conn, Restaurant restaurant) throws SQLException
@@ -142,6 +174,7 @@ public class Main {
     {
         PreparedStatement stmt = conn.prepareStatement("DELETE FROM restaurants WHERE id = ?");
         stmt.setInt(1,id);
+        stmt.execute();
     }
 
     public static ArrayList<Restaurant> selectRestaurants(Connection conn) throws SQLException
@@ -172,5 +205,23 @@ public class Main {
         stmt.setString(4,restaurant.comment);
         stmt.setInt(5,restaurant.id);
         stmt.execute();
+    }
+
+    public static Restaurant getRestaurant(Connection conn, int id) throws SQLException
+    {
+        PreparedStatement stmt = conn.prepareStatement("SELECT * FROM restaurants WHERE id = ?");
+        stmt.setInt(1,id);
+        ResultSet results = stmt.executeQuery();
+        Restaurant restaurant = null;
+        while (results.next())
+        {
+            int newId = results.getInt("id");
+            String name = results.getString("name");
+            String location = results.getString("location");
+            int rating = results.getInt("rating");
+            String comment = results.getString("comment");
+            restaurant = new Restaurant(newId,name,location,rating,comment);
+        }
+        return restaurant;
     }
 }
