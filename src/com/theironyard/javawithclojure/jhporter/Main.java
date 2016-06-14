@@ -18,6 +18,8 @@ public class Main {
         Spark.staticFileLocation("/public");
         Spark.init();
 
+        boolean search = false;
+
         Server.createWebServer().start();
         Connection conn = DriverManager.getConnection("jdbc:h2:./main");
         Statement stmt = conn.createStatement();
@@ -35,12 +37,14 @@ public class Main {
                     if (username == null)
                     {
                         return new ModelAndView(m, "login.html");
-                    } else
+                    }
+                    else
                     {
                         User user = users.get(username);
                         m.put("restaurants", selectRestaurants(conn));
                         return new ModelAndView(m, "home.html");
                     }
+
                 },
                 new MustacheTemplateEngine()
         );
@@ -131,7 +135,7 @@ public class Main {
                     String username = session.attribute("username");
                     int id = Integer.valueOf(request.queryParams("id"));
                     HashMap h = new HashMap<>();
-                    h.put("restaurant", getRestaurant(conn,id) );
+                    h.put("restaurant", getRestaurant(conn, id));
                     return new ModelAndView(h, "edit.html");
 
                 },
@@ -157,6 +161,20 @@ public class Main {
                     response.redirect("/");
                     return "";
                 }
+        );
+        Spark.get(
+                "/search-names",
+                (request, response) -> {
+                    Session session = request.session();
+                    String username = session.attribute("username");
+                    String searchString = request.queryParams("search");
+                    HashMap hm = new HashMap<>();
+
+                    hm.put("restaurants", searchNames(conn, searchString));
+                    return new ModelAndView(hm, "home.html");
+
+                },
+                new MustacheTemplateEngine()
         );
     }
 
@@ -223,5 +241,29 @@ public class Main {
             restaurant = new Restaurant(newId,name,location,rating,comment);
         }
         return restaurant;
+    }
+
+    public static ArrayList<Restaurant> searchNames(Connection conn, String search) throws SQLException
+    {
+        ArrayList<Restaurant> restaurantList= new ArrayList<>();
+        PreparedStatement stmt = conn.prepareStatement("SELECT * FROM restaurants");
+        ResultSet results = stmt.executeQuery();
+        ArrayList<Restaurant> restaurants = new ArrayList<>();
+        while (results.next())
+        {
+            int id = results.getInt("id");
+            String name = results.getString("name");
+            String location = results.getString("location");
+            int rating = results.getInt("rating");
+            String comment = results.getString("comment");
+            Restaurant restaurant = new Restaurant(id,name,location,rating,comment);
+            search = search.toLowerCase();
+            String lowerName = name.toLowerCase();
+            if (lowerName.contains(search))
+            {
+                restaurants.add(restaurant);
+            }
+        }
+        return restaurants;
     }
 }
